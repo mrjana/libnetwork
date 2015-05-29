@@ -2,8 +2,8 @@
 SHELL=/bin/bash
 build_image=libnetwork-build
 dockerargs = --privileged -v $(shell pwd):/go/src/github.com/docker/libnetwork -w /go/src/github.com/docker/libnetwork
-container_env = -e "INSIDECONTAINER=-incontainer=true"
-docker = docker run --rm ${dockerargs} ${container_env} ${build_image}
+container_env = -e "INSIDECONTAINER=-incontainer=true" -e "TMPDIR=/go/src/github.com/docker/libnetwork"
+docker = docker run  ${dockerargs} ${container_env} ${build_image}
 ciargs = -e "COVERALLS_TOKEN=$$COVERALLS_TOKEN" -e "INSIDECONTAINER=-incontainer=true"
 cidocker = docker run ${ciargs} ${dockerargs} golang:1.4
 
@@ -13,7 +13,7 @@ all: ${build_image}.created
 all-local: check-local build-local
 
 ${build_image}.created:
-	docker run --name=libnetworkbuild -v $(shell pwd):/go/src/github.com/docker/libnetwork -w /go/src/github.com/docker/libnetwork golang:1.4 make install-deps
+	docker run --name=libnetworkbuild -v $(shell pwd):/go/src/github.com/docker/libnetwork -w /go/src/github.com/docker/libnetwork golang:1.4.2 make install-deps
 	docker commit libnetworkbuild ${build_image}
 	docker rm libnetworkbuild
 	touch ${build_image}.created
@@ -35,7 +35,7 @@ check-code:
 
 check-format:
 	@echo "Checking format... "
-	test -z "$$(goimports -l . | grep -v Godeps/_workspace/src/ | tee /dev/stderr)"
+	test -z "$$(goimports -l . | grep -v Godeps/_workspace/src/ | grep -v _test | tee /dev/stderr)"
 	@echo "Done checking format"
 
 run-tests:
@@ -45,7 +45,7 @@ run-tests:
 	    if ls $$dir/*.go &> /dev/null; then \
 		pushd . &> /dev/null ; \
 		cd $$dir ; \
-		$(shell which godep) go test ${INSIDECONTAINER} -test.parallel 3 -test.v -covermode=count -coverprofile=./profile.tmp ; \
+		$(shell which godep) go test ${INSIDECONTAINER} -test.parallel 3 -test.v -race -work -covermode=count -coverprofile=./profile.tmp ; \
 		ret=$$? ;\
 		if [ $$ret -ne 0 ]; then exit $$ret; fi ;\
 		popd &> /dev/null; \
