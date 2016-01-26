@@ -10,6 +10,10 @@ function dnet_container_name() {
     echo dnet-$1-$2
 }
 
+function dnet_container_ip() {
+    docker inspect --format '{{.NetworkSettings.IPAddress}}' dnet-$1-$2
+}
+
 function get_sbox_id() {
     local line
 
@@ -18,17 +22,17 @@ function get_sbox_id() {
 }
 
 function net_connect() {
-        local al gl
-        if [ -n "$4" ]; then
-            if [ "${4}" != ":" ]; then
-                al="--alias=${4}"
-            fi
-        fi
-        if [ -n "$5" ]; then
-            gl="--alias=${5}"
-        fi
-        dnet_cmd $(inst_id2port ${1}) service publish $gl ${2}.${3}
-        dnet_cmd $(inst_id2port ${1}) service attach $al ${2} ${2}.${3}
+	local al gl
+	if [ -n "$4" ]; then
+	    if [ "${4}" != ":" ]; then
+		al="--alias=${4}"
+	    fi
+	fi
+	if [ -n "$5" ]; then
+	    gl="--alias=${5}"
+	fi
+	dnet_cmd $(inst_id2port ${1}) service publish $gl ${2}.${3}
+	dnet_cmd $(inst_id2port ${1}) service attach $al ${2} ${2}.${3}
 }
 
 function net_disconnect() {
@@ -107,7 +111,7 @@ function parse_discovery_str() {
 }
 
 function start_dnet() {
-    local inst suffix name hport cport hopt store bridge_ip labels tomlfile
+    local inst suffix name hport cport hopt store bridge_ip labels tomlfile nip
     local discovery provider address
 
     inst=$1
@@ -115,13 +119,16 @@ function start_dnet() {
     suffix=$1
     shift
 
-    stop_dnet ${inst} ${suffix}
-    name=$(dnet_container_name ${inst} ${suffix})
+    store=$(echo $suffix | cut -d":" -f1)
+    nip=$(echo $suffix | cut -d":" -f2)
+
+
+    stop_dnet ${inst} ${store}
+    name=$(dnet_container_name ${inst} ${store})
 
     hport=$((41000+${inst}-1))
     cport=2385
     hopt=""
-    store=${suffix}
 
     while [ -n "$1" ]
     do
@@ -144,15 +151,27 @@ function start_dnet() {
     tomlfile="/tmp/dnet/${name}/libnetwork.toml"
 
     # Try discovery URLs with or without path
+    neigh_ip=""
     if [ "$store" = "zookeeper" ]; then
 	read discovery provider address < <(parse_discovery_str zk://${bridge_ip}:2182)
     elif [ "$store" = "etcd" ]; then
 	read discovery provider address < <(parse_discovery_str etcd://${bridge_ip}:42000/custom_prefix)
-    else
+    elif [ "$store" = "consul" ]; then
 	read discovery provider address < <(parse_discovery_str consul://${bridge_ip}:8500/custom_prefix)
+    else
+	if [ "$nip" != "" ]; then
+	    labels="[\"com.docker.network.driver.overlay.bind_interface=eth0\", \"com.docker.network.driver.overlay.neighbor_ip=${nip}\"]"
+	else
+	    labels="[\"com.docker.network.driver.overlay.bind_interface=eth0\"]"
+	fi
+
+	discovery=""
+	provider=""
+	address=""
     fi
 
-    cat > ${tomlfile} <<EOF
+    if [ "$discovery" != "" ]; then
+	cat > ${tomlfile} <<EOF
 title = "LibNetwork Configuration file for ${name}"
 
 [daemon]
@@ -166,6 +185,16 @@ title = "LibNetwork Configuration file for ${name}"
       provider = "${provider}"
       address = "${address}"
 EOF
+    else
+	cat > ${tomlfile} <<EOF
+title = "LibNetwork Configuration file for ${name}"
+
+[daemon]
+  debug = false
+  labels = ${labels}
+EOF
+    fi
+
     cat ${tomlfile}
     docker run \
 	   -d \
@@ -181,6 +210,19 @@ EOF
 	   mrjana/golang ./bin/dnet -d -D ${hopt} -c ${tomlfile}
 
     wait_for_dnet $(inst_id2port ${inst}) ${name}
+}
+
+function start_ovrouter() {
+    local name=${1}
+    local parent=${2}
+
+    docker run \
+	   -d \
+	   --name=${name} \
+	   --net=container:${parent} \
+	   --volumes-from ${parent} \
+	   -w /go/src/github.com/docker/libnetwork \
+	   mrjana/golang ./cmd/ovrouter/ovrouter eth0
 }
 
 function skip_for_circleci() {
@@ -289,7 +331,7 @@ function test_overlay() {
     end=3
     # Setup overlay network and connect containers ot it
     if [ -z "${2}" -o "${2}" != "skip_add" ]; then
-        if [ -z "${2}" -o "${2}" != "internal" ]; then
+	if [ -z "${2}" -o "${2}" != "internal" ]; then
 	    dnet_cmd $(inst_id2port 1) network create -d overlay multihost
 	else
 	    dnet_cmd $(inst_id2port 1) network create -d overlay --internal multihost
@@ -307,7 +349,7 @@ function test_overlay() {
     do
 	if [ -z "${2}" -o "${2}" != "internal" ]; then
 	    runc $(dnet_container_name $i $dnet_suffix) $(get_sbox_id ${i} container_${i}) \
-	        "ping -c 1 www.google.com"
+		"ping -c 1 www.google.com"
 	else
 	    default_route=`runc $(dnet_container_name $i $dnet_suffix) $(get_sbox_id ${i} container_${i}) "ip route | grep default"`
 	    [ "$default_route" = "" ]

@@ -44,16 +44,24 @@ type driver struct {
 
 // Init registers a new instance of overlay driver
 func Init(dc driverapi.DriverCallback, config map[string]interface{}) error {
-	c := driverapi.Capability{
-		DataScope: datastore.GlobalScope,
-	}
-
 	d := &driver{
 		networks: networkTable{},
 		peerDb: peerNetworkMap{
 			mp: map[string]*peerMap{},
 		},
 		config: config,
+	}
+
+	if err := d.procBindInterface(); err != nil {
+		return fmt.Errorf("failed using bind interface option: %v", err)
+	}
+
+	if err := d.procNeighIP(); err != nil {
+		return fmt.Errorf("failed using neighbor IP option: %v", err)
+	}
+
+	c := driverapi.Capability{
+		DataScope: d.chooseScope(),
 	}
 
 	return dc.RegisterDriver(networkType, d, c)
@@ -70,6 +78,17 @@ func Fini(drv driverapi.Driver) {
 
 		<-waitCh
 	}
+}
+
+func (d *driver) chooseScope() string {
+	_, provOk := d.config[netlabel.GlobalKVProvider]
+	_, urlOk := d.config[netlabel.GlobalKVProviderURL]
+
+	if provOk && urlOk {
+		return datastore.GlobalScope
+	}
+
+	return datastore.LocalScope
 }
 
 func (d *driver) configure() error {
@@ -94,23 +113,18 @@ func (d *driver) configure() error {
 			if confOk {
 				cfg.Client.Config = provConfig.(*store.Config)
 			}
+
 			d.store, err = datastore.NewDataStore(datastore.GlobalScope, cfg)
 			if err != nil {
 				err = fmt.Errorf("failed to initialize data store: %v", err)
 				return
 			}
-		}
 
-		d.vxlanIdm, err = idm.New(d.store, "vxlan-id", vxlanIDStart, vxlanIDEnd)
-		if err != nil {
-			err = fmt.Errorf("failed to initialize vxlan id manager: %v", err)
-			return
-		}
-
-		d.ipAllocator, err = idm.New(d.store, "ipam-id", 1, 0xFFFF-2)
-		if err != nil {
-			err = fmt.Errorf("failed to initalize ipam id manager: %v", err)
-			return
+			d.vxlanIdm, err = idm.New(d.store, "vxlan-id", vxlanIDStart, vxlanIDEnd)
+			if err != nil {
+				err = fmt.Errorf("failed to initialize vxlan id manager: %v", err)
+				return
+			}
 		}
 	})
 
@@ -178,6 +192,69 @@ func (d *driver) nodeJoin(node string, self bool) {
 			return
 		}
 	}
+}
+
+func getBindAddr(ifaceName string) (string, error) {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return "", fmt.Errorf("failed to find interface %s: %v", ifaceName, err)
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return "", fmt.Errorf("failed to get interface addresses: %v", err)
+	}
+
+	for _, a := range addrs {
+		addr, ok := a.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		addrIP := addr.IP
+
+		if addrIP.IsLinkLocalUnicast() {
+			continue
+		}
+
+		return addrIP.String(), nil
+	}
+
+	return "", fmt.Errorf("failed to get bind address")
+}
+
+func (d *driver) procBindInterface() error {
+	bif, ok := d.config[netlabel.OverlayBindInterface]
+	if !ok {
+		return nil
+	}
+
+	bindIf, ok := bif.(string)
+	if !ok {
+		return fmt.Errorf("unexpected type %T for bind interface option. expected string", bif)
+	}
+
+	bindIP, err := getBindAddr(bindIf)
+	if err != nil {
+		return fmt.Errorf("could not find a valid IP address for interface %s: %v", bif, err)
+	}
+
+	d.nodeJoin(bindIP, true)
+	return nil
+}
+
+func (d *driver) procNeighIP() error {
+	nip, ok := d.config[netlabel.OverlayNeighborIP]
+	if !ok {
+		return nil
+	}
+
+	neighIP, ok := nip.(string)
+	if !ok {
+		return fmt.Errorf("unexpected type %T for neighbor IP option. expected string", nip)
+	}
+
+	d.nodeJoin(neighIP, false)
+	return nil
 }
 
 func (d *driver) pushLocalEndpointEvent(action, nid, eid string) {

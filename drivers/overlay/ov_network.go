@@ -3,14 +3,18 @@ package overlay
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/driverapi"
+	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/netutils"
 	"github.com/docker/libnetwork/osl"
 	"github.com/docker/libnetwork/resolvconf"
@@ -76,11 +80,31 @@ func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Dat
 		subnets:   []*subnet{},
 	}
 
-	for _, ipd := range ipV4Data {
+	vxlanIDList := make([]uint32, len(ipV4Data))
+	if gval, ok := option[netlabel.GenericData]; ok {
+		optMap := gval.(map[string]string)
+		if val, ok := optMap[netlabel.OverlayVxlanIDList]; ok {
+			log.Println("overlay network option: ", val)
+			valStrList := strings.Split(val, ",")
+			for i, idStr := range valStrList {
+				vni, err := strconv.Atoi(idStr)
+				if err != nil {
+					return fmt.Errorf("invalid vxlan id value %q passed", idStr)
+				}
+
+				vxlanIDList[i] = uint32(vni)
+			}
+		}
+	}
+
+	log.Printf("ipv4Data = %+v", ipV4Data)
+	for i, ipd := range ipV4Data {
+		log.Printf("CreateNetwork iterator %d", i)
 		s := &subnet{
 			subnetIP: ipd.Pool,
 			gwIP:     ipd.Gateway,
 			once:     &sync.Once{},
+			vni:      vxlanIDList[i],
 		}
 		n.subnets = append(n.subnets, s)
 	}
@@ -225,11 +249,21 @@ func setHostMode() {
 }
 
 func (n *network) generateVxlanName(s *subnet) string {
-	return "vx-" + fmt.Sprintf("%06x", n.vxlanID(s)) + "-" + n.id[:5]
+	id := n.id
+	if len(n.id) > 5 {
+		id = n.id[:5]
+	}
+
+	return "vx-" + fmt.Sprintf("%06x", n.vxlanID(s)) + "-" + id
 }
 
 func (n *network) generateBridgeName(s *subnet) string {
-	return "ov-" + fmt.Sprintf("%06x", n.vxlanID(s)) + "-" + n.id[:5]
+	id := n.id
+	if len(n.id) > 5 {
+		id = n.id[:5]
+	}
+
+	return "ov-" + fmt.Sprintf("%06x", n.vxlanID(s)) + "-" + id
 }
 
 func isOverlap(nw *net.IPNet) bool {
@@ -532,6 +566,10 @@ func (n *network) DataScope() string {
 }
 
 func (n *network) writeToStore() error {
+	if n.driver.store == nil {
+		return nil
+	}
+
 	return n.driver.store.PutObjectAtomic(n)
 }
 

@@ -2,6 +2,7 @@ package libnetwork
 
 import (
 	"fmt"
+	"runtime/debug"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/datastore"
@@ -192,6 +193,7 @@ func (c *controller) updateToStore(kvObject datastore.KVObject) error {
 
 	if err := cs.PutObjectAtomic(kvObject); err != nil {
 		if err == datastore.ErrKeyModified {
+			log.Println("Debug stack:", string(debug.Stack()))
 			return err
 		}
 		return fmt.Errorf("failed to update store for object type %T: %v", kvObject, err)
