@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#set -e
+set -e
 
 export INTEGRATION_ROOT=./integration-tmp
 export TMPC_ROOT=./integration-tmp/tmpc
@@ -48,7 +48,6 @@ function run_overlay_local_tests() {
 
     ## Run the test cases
     ./integration-tmp/bin/bats ./test/integration/dnet/overlay-local.bats
-    docker logs dnet-1-local
 
     ## Teardown
     stop_dnet 1 local 1>>${INTEGRATION_ROOT}/test.log 2>&1

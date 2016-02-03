@@ -522,6 +522,54 @@ func (n *network) Skip() bool {
 	return false
 }
 
+func (n *network) New() datastore.KVObject {
+	n.Lock()
+	defer n.Unlock()
+
+	return &network{
+		driver:    n.driver,
+		endpoints: endpointTable{},
+		once:      &sync.Once{},
+	}
+}
+
+func (n *network) CopyTo(o datastore.KVObject) error {
+	n.Lock()
+	defer n.Unlock()
+
+	dstN := o.(*network)
+	dstN.id = n.id
+	dstN.dbIndex = n.dbIndex
+	dstN.sbox = n.sbox
+	dstN.driver = n.driver
+	dstN.joinCnt = n.joinCnt
+	dstN.once = n.once
+	dstN.initEpoch = n.initEpoch
+	dstN.initErr = n.initErr
+
+	dstN.endpoints = endpointTable{}
+	for k, v := range n.endpoints {
+		dstN.endpoints[k] = v
+	}
+
+	dstN.subnets = make([]*subnet, 0, len(n.subnets))
+	for _, s := range n.subnets {
+		dstS := &subnet{
+			once:      s.once,
+			vxlanName: s.vxlanName,
+			brName:    s.brName,
+			vni:       s.vni,
+			initErr:   s.initErr,
+			subnetIP:  types.GetIPNetCopy(s.subnetIP),
+			gwIP:      types.GetIPNetCopy(s.gwIP),
+		}
+
+		dstN.subnets = append(dstN.subnets, dstS)
+	}
+
+	return nil
+}
+
 func (n *network) SetValue(value []byte) error {
 	var newNet bool
 	netJSON := []*subnetJSON{}
@@ -562,7 +610,7 @@ func (n *network) SetValue(value []byte) error {
 }
 
 func (n *network) DataScope() string {
-	return datastore.GlobalScope
+	return n.driver.scope
 }
 
 func (n *network) writeToStore() error {

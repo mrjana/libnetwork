@@ -39,6 +39,7 @@ type driver struct {
 	vxlanIdm     *idm.Idm
 	once         sync.Once
 	joinOnce     sync.Once
+	scope        string
 	sync.Mutex
 }
 
@@ -64,6 +65,7 @@ func Init(dc driverapi.DriverCallback, config map[string]interface{}) error {
 		DataScope: d.chooseScope(),
 	}
 
+	d.scope = c.DataScope
 	return dc.RegisterDriver(networkType, d, c)
 }
 
@@ -91,6 +93,41 @@ func (d *driver) chooseScope() string {
 	return datastore.LocalScope
 }
 
+func (d *driver) getStoreConfig() *datastore.ScopeCfg {
+	var providerLabel, urlLabel, cfgLabel string
+	switch d.scope {
+	case datastore.GlobalScope:
+		providerLabel = netlabel.GlobalKVProvider
+		urlLabel = netlabel.GlobalKVProviderURL
+		cfgLabel = netlabel.GlobalKVProviderConfig
+	case datastore.LocalScope:
+		providerLabel = netlabel.LocalKVProvider
+		urlLabel = netlabel.LocalKVProviderURL
+		cfgLabel = netlabel.LocalKVProviderConfig
+	}
+
+	provider, provOk := d.config[providerLabel]
+	provURL, urlOk := d.config[urlLabel]
+	provConfig, confOk := d.config[cfgLabel]
+
+	if !provOk || !urlOk {
+		return nil
+	}
+
+	cfg := &datastore.ScopeCfg{
+		Client: datastore.ScopeClientCfg{
+			Provider: provider.(string),
+			Address:  provURL.(string),
+		},
+	}
+
+	if confOk {
+		cfg.Client.Config = provConfig.(*store.Config)
+	}
+
+	return cfg
+}
+
 func (d *driver) configure() error {
 	var err error
 
@@ -99,32 +136,21 @@ func (d *driver) configure() error {
 	}
 
 	d.once.Do(func() {
-		provider, provOk := d.config[netlabel.GlobalKVProvider]
-		provURL, urlOk := d.config[netlabel.GlobalKVProviderURL]
+		cfg := d.getStoreConfig()
+		if cfg == nil {
+			return
+		}
 
-		if provOk && urlOk {
-			cfg := &datastore.ScopeCfg{
-				Client: datastore.ScopeClientCfg{
-					Provider: provider.(string),
-					Address:  provURL.(string),
-				},
-			}
-			provConfig, confOk := d.config[netlabel.GlobalKVProviderConfig]
-			if confOk {
-				cfg.Client.Config = provConfig.(*store.Config)
-			}
+		d.store, err = datastore.NewDataStore(d.scope, cfg)
+		if err != nil {
+			err = fmt.Errorf("failed to initialize data store: %v", err)
+			return
+		}
 
-			d.store, err = datastore.NewDataStore(datastore.GlobalScope, cfg)
-			if err != nil {
-				err = fmt.Errorf("failed to initialize data store: %v", err)
-				return
-			}
-
-			d.vxlanIdm, err = idm.New(d.store, "vxlan-id", vxlanIDStart, vxlanIDEnd)
-			if err != nil {
-				err = fmt.Errorf("failed to initialize vxlan id manager: %v", err)
-				return
-			}
+		d.vxlanIdm, err = idm.New(d.store, "vxlan-id", vxlanIDStart, vxlanIDEnd)
+		if err != nil {
+			err = fmt.Errorf("failed to initialize vxlan id manager: %v", err)
+			return
 		}
 	})
 
