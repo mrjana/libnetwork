@@ -1,14 +1,10 @@
 {
 	"ImportPath": "github.com/docker/libnetwork",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.5.3",
 	"Packages": [
 		"./..."
 	],
 	"Deps": [
-		{
-			"ImportPath": "github.com/Azure/go-ansiterm",
-			"Rev": "70b2c90b260171e829f1ebd7c17f600c11858dbe"
-		},
 		{
 			"ImportPath": "github.com/BurntSushi/toml",
 			"Comment": "v0.1.0-16-gf706d00",
@@ -64,11 +60,6 @@
 			"Rev": "ef32fa3046d9f249d399f98ebaf9be944430fd1d"
 		},
 		{
-			"ImportPath": "github.com/docker/docker/api/types/blkiodev",
-			"Comment": "v1.4.1-8734-g577cf61",
-			"Rev": "577cf61afad695f0ba226cdf8a995a8c78883e51"
-		},
-		{
 			"ImportPath": "github.com/docker/docker/opts",
 			"Comment": "v1.4.1-8734-g577cf61",
 			"Rev": "577cf61afad695f0ba226cdf8a995a8c78883e51"
@@ -85,11 +76,6 @@
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/ioutils",
-			"Comment": "v1.4.1-8734-g577cf61",
-			"Rev": "577cf61afad695f0ba226cdf8a995a8c78883e51"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/pkg/longpath",
 			"Comment": "v1.4.1-8734-g577cf61",
 			"Rev": "577cf61afad695f0ba226cdf8a995a8c78883e51"
 		},
@@ -134,11 +120,6 @@
 			"Rev": "577cf61afad695f0ba226cdf8a995a8c78883e51"
 		},
 		{
-			"ImportPath": "github.com/docker/docker/pkg/sockets",
-			"Comment": "v1.4.1-8734-g577cf61",
-			"Rev": "577cf61afad695f0ba226cdf8a995a8c78883e51"
-		},
-		{
 			"ImportPath": "github.com/docker/docker/pkg/stringid",
 			"Comment": "v1.4.1-8734-g577cf61",
 			"Rev": "577cf61afad695f0ba226cdf8a995a8c78883e51"
@@ -164,9 +145,22 @@
 			"Rev": "577cf61afad695f0ba226cdf8a995a8c78883e51"
 		},
 		{
-			"ImportPath": "github.com/docker/docker/pkg/ulimit",
-			"Comment": "v1.4.1-8734-g577cf61",
-			"Rev": "577cf61afad695f0ba226cdf8a995a8c78883e51"
+			"ImportPath": "github.com/docker/go-connections/sockets",
+			"Comment": "v0.1.2-2-g082e382",
+			"Rev": "082e382836465660fe3fd21de06624a205f986eb"
+		},
+		{
+			"ImportPath": "github.com/docker/go-connections/tlsconfig",
+			"Comment": "v0.1.2-2-g082e382",
+			"Rev": "082e382836465660fe3fd21de06624a205f986eb"
+		},
+		{
+			"ImportPath": "github.com/docker/go-plugins-helpers/network",
+			"Rev": "0835c399f59d7f9bc8e26c84bf4c13cb02853f96"
+		},
+		{
+			"ImportPath": "github.com/docker/go-plugins-helpers/sdk",
+			"Rev": "0835c399f59d7f9bc8e26c84bf4c13cb02853f96"
 		},
 		{
 			"ImportPath": "github.com/docker/go-units",
@@ -224,10 +218,6 @@
 		{
 			"ImportPath": "github.com/samuel/go-zookeeper/zk",
 			"Rev": "d0e0d8e11f318e000a8cc434616d69e329edc374"
-		},
-		{
-			"ImportPath": "github.com/seccomp/libseccomp-golang",
-			"Rev": "1b506fc7c24eec5a3693cdcbed40d9c226cfc6a1"
 		},
 		{
 			"ImportPath": "github.com/stretchr/testify/assert",
