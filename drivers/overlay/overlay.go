@@ -249,6 +249,11 @@ func getBindAddr(ifaceName string) (string, error) {
 }
 
 func (d *driver) procBindInterface() error {
+	if bindIP, ok := d.config[netlabel.OverlayBindIP]; ok {
+		d.nodeJoin(bindIP.(string), true)
+		return nil
+	}
+
 	bif, ok := d.config[netlabel.OverlayBindInterface]
 	if !ok {
 		return nil

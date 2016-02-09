@@ -33,6 +33,9 @@ const (
 	// DriverMTU constant represents the MTU size for the network driver
 	DriverMTU = DriverPrefix + ".mtu"
 
+	// OverlayBindIP constant represents overlay driver bind IP
+	OverlayBindIP = DriverPrefix + ".overlay.bind_ip"
+
 	// OverlayBindInterface constant represents overlay driver bind interface
 	OverlayBindInterface = DriverPrefix + ".overlay.bind_interface"
 
