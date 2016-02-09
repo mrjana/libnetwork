@@ -54,6 +54,9 @@ type Network interface {
 
 	// Return certain operational data belonging to this network
 	Info() NetworkInfo
+
+	// OperInfo returns network operation info as map of string key to string values
+	OperInfo() (map[string]string, error)
 }
 
 // NetworkInfo returns some configuration and operational information about the network
@@ -1154,6 +1157,21 @@ func (n *network) deriveAddressSpace() (string, error) {
 
 func (n *network) Info() NetworkInfo {
 	return n
+}
+
+func (n *network) OperInfo() (map[string]string, error) {
+	d, err := n.driver()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get driver for network: %v", err)
+	}
+
+	info, err := d.NetworkOperInfo(n.ID())
+	if err != nil {
+		return nil, err
+	}
+
+	return info, nil
+
 }
 
 func (n *network) DriverOptions() map[string]string {

@@ -1188,6 +1188,10 @@ func (d *driver) Leave(nid, eid string) error {
 	return nil
 }
 
+func (d *driver) NetworkOperInfo(nid string) (map[string]string, error) {
+	return nil, nil
+}
+
 func (d *driver) link(network *bridgeNetwork, endpoint *bridgeEndpoint, options map[string]interface{}, enable bool) error {
 	var (
 		cc  *containerConfiguration

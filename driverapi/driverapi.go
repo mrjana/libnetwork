@@ -16,6 +16,9 @@ type Driver interface {
 	// the network id.
 	DeleteNetwork(nid string) error
 
+	// NetworkOperInfo retrieves from the driver the operational data related to the network
+	NetworkOperInfo(nid string) (map[string]string, error)
+
 	// CreateEndpoint invokes the driver method to create an endpoint
 	// passing the network id, endpoint id endpoint information and driver
 	// specific config. The endpoint information can be either consumed by

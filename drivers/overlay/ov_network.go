@@ -133,6 +133,30 @@ func (d *driver) DeleteNetwork(nid string) error {
 	return n.releaseVxlanID()
 }
 
+func (d *driver) NetworkOperInfo(nid string) (map[string]string, error) {
+	if nid == "" {
+		return nil, fmt.Errorf("invalid network id")
+	}
+
+	n := d.network(nid)
+	if n == nil {
+		return nil, fmt.Errorf("could not find network with id %s", nid)
+	}
+
+	if len(n.subnets) == 0 || n.subnets[0].vni == 0 {
+		return nil, nil
+	}
+
+	opts := make(map[string]string)
+	val := fmt.Sprintf("%d", n.subnets[0].vni)
+	for _, s := range n.subnets[1:] {
+		val = val + fmt.Sprintf(",%d", s.vni)
+	}
+
+	opts[netlabel.OverlayVxlanIDList] = val
+	return opts, nil
+}
+
 func (n *network) incEndpointCount() {
 	n.Lock()
 	defer n.Unlock()

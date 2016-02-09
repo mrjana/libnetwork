@@ -40,6 +40,10 @@ func (d *driver) DeleteNetwork(nid string) error {
 	return types.ForbiddenErrorf("network of type \"%s\" cannot be deleted", networkType)
 }
 
+func (d *driver) NetworkOperInfo(nid string) (map[string]string, error) {
+	return nil, nil
+}
+
 func (d *driver) CreateEndpoint(nid, eid string, ifInfo driverapi.InterfaceInfo, epOptions map[string]interface{}) error {
 	return nil
 }

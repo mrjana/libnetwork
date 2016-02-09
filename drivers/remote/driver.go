@@ -97,6 +97,10 @@ func (d *driver) DeleteNetwork(nid string) error {
 	return d.call("DeleteNetwork", delete, &api.DeleteNetworkResponse{})
 }
 
+func (d *driver) NetworkOperInfo(nid string) (map[string]string, error) {
+	return nil, nil
+}
+
 func (d *driver) CreateEndpoint(nid, eid string, ifInfo driverapi.InterfaceInfo, epOptions map[string]interface{}) error {
 	if ifInfo == nil {
 		return fmt.Errorf("must not be called with nil InterfaceInfo")
