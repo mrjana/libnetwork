@@ -97,6 +97,10 @@ func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Dat
 		}
 	}
 
+	if err := n.writeToStore(); err != nil {
+		return fmt.Errorf("failed to update data store for network %v: %v", n.id, err)
+	}
+
 	log.Printf("ipv4Data = %+v", ipV4Data)
 	for i, ipd := range ipV4Data {
 		log.Printf("CreateNetwork iterator %d", i)
@@ -106,11 +110,12 @@ func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Dat
 			once:     &sync.Once{},
 			vni:      vxlanIDList[i],
 		}
-		n.subnets = append(n.subnets, s)
-	}
 
-	if err := n.writeToStore(); err != nil {
-		return fmt.Errorf("failed to update data store for network %v: %v", n.id, err)
+		if err := n.obtainVxlanID(s); err != nil {
+			log.Printf("Could not obtain vxlan id for pool %s: %v", s.subnetIP, err)
+		}
+
+		n.subnets = append(n.subnets, s)
 	}
 
 	d.addNetwork(n)
