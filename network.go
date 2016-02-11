@@ -35,7 +35,7 @@ type Network interface {
 
 	// Create a new endpoint to this network symbolically identified by the
 	// specified unique name. The options parameter carry driver specific options.
-	CreateEndpoint(name string, options ...EndpointOption) (Endpoint, error)
+	CreateEndpoint(name string, id string, options ...EndpointOption) (Endpoint, error)
 
 	// Delete the network.
 	Delete() error
@@ -668,7 +668,7 @@ func (n *network) addEndpoint(ep *endpoint) error {
 	return nil
 }
 
-func (n *network) CreateEndpoint(name string, options ...EndpointOption) (Endpoint, error) {
+func (n *network) CreateEndpoint(name string, id string, options ...EndpointOption) (Endpoint, error) {
 	var err error
 	if !config.IsValidName(name) {
 		return nil, ErrInvalidName(name)
@@ -678,8 +678,10 @@ func (n *network) CreateEndpoint(name string, options ...EndpointOption) (Endpoi
 		return nil, types.ForbiddenErrorf("service endpoint with name %s already exists", name)
 	}
 
-	ep := &endpoint{name: name, generic: make(map[string]interface{}), iface: &endpointInterface{}}
-	ep.id = stringid.GenerateRandomID()
+	ep := &endpoint{name: name, id: id, generic: make(map[string]interface{}), iface: &endpointInterface{}}
+	if ep.id == "" {
+		ep.id = stringid.GenerateRandomID()
+	}
 
 	// Initialize ep.network with a possibly stale copy of n. We need this to get network from
 	// store. But once we get it from store we will have the most uptodate copy possible.
