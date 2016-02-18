@@ -155,6 +155,20 @@ func OptionKVOpts(opts map[string]string) Option {
 	}
 }
 
+func OptionKVHandle(handle interface{}) Option {
+	return func(c *Config) {
+		if _, ok := c.Scopes[datastore.GlobalScope]; !ok {
+			c.Scopes[datastore.GlobalScope] = &datastore.ScopeCfg{}
+		}
+
+		if c.Scopes[datastore.GlobalScope].Client.Config == nil {
+			c.Scopes[datastore.GlobalScope].Client.Config = &store.Config{Handle: handle}
+		} else {
+			c.Scopes[datastore.GlobalScope].Client.Config.Handle = handle
+		}
+	}
+}
+
 // OptionDiscoveryWatcher function returns an option setter for discovery watcher
 func OptionDiscoveryWatcher(watcher discovery.Watcher) Option {
 	return func(c *Config) {
