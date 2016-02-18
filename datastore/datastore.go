@@ -14,6 +14,7 @@ import (
 	"github.com/docker/libkv/store/etcd"
 	"github.com/docker/libkv/store/zookeeper"
 	"github.com/docker/libnetwork/types"
+	"github.com/docker/swarm-v2-poc/store/pathdb"
 )
 
 //DataStore exported
@@ -152,6 +153,7 @@ func init() {
 	zookeeper.Register()
 	etcd.Register()
 	boltdb.Register()
+	pathdb.Register()
 }
 
 // DefaultScopes returns a map of default scopes and it's config for clients to use.
