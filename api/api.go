@@ -393,7 +393,7 @@ func procCreateEndpoint(c libnetwork.NetworkController, vars map[string]string, 
 		setFctList = append(setFctList, libnetwork.CreateOptionMyAlias(str))
 	}
 
-	ep, err := n.CreateEndpoint(ec.Name, setFctList...)
+	ep, err := n.CreateEndpoint(ec.Name, "", setFctList...)
 	if err != nil {
 		return "", convertNetworkError(err)
 	}
@@ -642,7 +642,7 @@ func procPublishService(c libnetwork.NetworkController, vars map[string]string, 
 		setFctList = append(setFctList, libnetwork.CreateOptionMyAlias(str))
 	}
 
-	ep, err := n.CreateEndpoint(sp.Name, setFctList...)
+	ep, err := n.CreateEndpoint(sp.Name, "", setFctList...)
 	if err != nil {
 		return "", endpointToService(convertNetworkError(err))
 	}
