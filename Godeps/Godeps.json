@@ -20,6 +20,10 @@
 			"Rev": "eb0af217e5e9747e41dd5303755356b62d28e3ec"
 		},
 		{
+			"ImportPath": "github.com/armon/go-radix",
+			"Rev": "e39d623f12e8e41c7b5529e9a9dd67a1e2261f80"
+		},
+		{
 			"ImportPath": "github.com/boltdb/bolt",
 			"Comment": "v1.0-117-g0f053fa",
 			"Rev": "0f053fabc06119583d61937a0a06ef0ba0f1b301"
@@ -41,6 +45,11 @@
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/pkg/types",
+			"Comment": "v2.2.0",
+			"Rev": "e4561dd8cfb1163fb51afceca9c78aa89398e731"
+		},
+		{
+			"ImportPath": "github.com/coreos/etcd/raft",
 			"Comment": "v2.2.0",
 			"Rev": "e4561dd8cfb1163fb51afceca9c78aa89398e731"
 		},
@@ -101,6 +110,11 @@
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/proxy",
+			"Comment": "v1.4.1-9901-g1ae6da7",
+			"Rev": "1ae6da75c8f0c51dc13a632d76f7769a70db36b1"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/pubsub",
 			"Comment": "v1.4.1-9901-g1ae6da7",
 			"Rev": "1ae6da75c8f0c51dc13a632d76f7769a70db36b1"
 		},
@@ -169,7 +183,18 @@
 		},
 		{
 			"ImportPath": "github.com/docker/libkv",
-			"Rev": "c2aac5dbbaa5c872211edea7c0f32b3bd67e7410"
+			"Comment": "v0.1.0-19-g4033d3c",
+			"Rev": "4033d3c9b2608f3b16f8b3b4b0a4a9080d6be7a0"
+		},
+		{
+			"ImportPath": "github.com/docker/swarm-v2-poc/api",
+			"Comment": "demo-17-gd8abef2",
+			"Rev": "d8abef20ce7cfc620470392eb94dd2378136410c"
+		},
+		{
+			"ImportPath": "github.com/docker/swarm-v2-poc/store",
+			"Comment": "demo-17-gd8abef2",
+			"Rev": "d8abef20ce7cfc620470392eb94dd2378136410c"
 		},
 		{
 			"ImportPath": "github.com/godbus/dbus",
@@ -177,8 +202,13 @@
 			"Rev": "c7fdd8b5cd55e87b4e1f4e372cdb1db61dd6c66f"
 		},
 		{
+			"ImportPath": "github.com/gogo/protobuf/proto",
+			"Comment": "v0.1-125-g82d16f7",
+			"Rev": "82d16f734d6d871204a3feb1a73cb220cc92574c"
+		},
+		{
 			"ImportPath": "github.com/golang/protobuf/proto",
-			"Rev": "f7137ae6b19afbfd61a94b746fda3b3fe0491874"
+			"Rev": "127091107ff5f822298f1faa7487ffcf578adcf6"
 		},
 		{
 			"ImportPath": "github.com/gorilla/context",
@@ -241,7 +271,23 @@
 		},
 		{
 			"ImportPath": "golang.org/x/net/context",
-			"Rev": "9dd48c277bcb2bb2cc3eb6a6368a486a567d3562"
+			"Rev": "b6d7b1396ec874c3b00f6c84cd4301a17c56c8ed"
+		},
+		{
+			"ImportPath": "golang.org/x/net/http2",
+			"Rev": "b6d7b1396ec874c3b00f6c84cd4301a17c56c8ed"
+		},
+		{
+			"ImportPath": "golang.org/x/net/internal/timeseries",
+			"Rev": "b6d7b1396ec874c3b00f6c84cd4301a17c56c8ed"
+		},
+		{
+			"ImportPath": "golang.org/x/net/trace",
+			"Rev": "b6d7b1396ec874c3b00f6c84cd4301a17c56c8ed"
+		},
+		{
+			"ImportPath": "google.golang.org/grpc",
+			"Rev": "a202995ce9a99c7d65875ba9f0cf04ff43169dd5"
 		}
 	]
 }

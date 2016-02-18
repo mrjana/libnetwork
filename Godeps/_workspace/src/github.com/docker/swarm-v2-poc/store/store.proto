@@ -1,0 +1,50 @@
+syntax = "proto3";
+package store;
+
+import "github.com/coreos/etcd/raft/raftpb/raft.proto";
+import weak "gogoproto/gogo.proto";
+
+service Raft {
+  rpc Ping(PingRequest) returns (Acknowledgment) {}
+  rpc JoinCluster(NodeInfo) returns (JoinClusterResponse) {}
+  rpc JoinRaft(NodeInfo) returns (JoinRaftResponse) {}
+  rpc LeaveRaft(NodeInfo) returns (LeaveRaftResponse) {}
+  rpc Send(raftpb.Message) returns (Acknowledgment) {}
+  rpc AddNode(NodeInfo) returns (AddNodeResponse) {}
+}
+
+message PingRequest {}
+
+message Acknowledgment {}
+
+message JoinClusterResponse {
+  bool success = 1;
+  string error = 2;
+  repeated NodeInfo info = 3;
+}
+
+message AddNodeResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message JoinRaftResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message LeaveRaftResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message NodeInfo {
+  uint64 ID = 1;
+  string Addr = 2;
+  string Port = 3;
+}
+
+message Pair {
+  string key = 1;
+  bytes value = 2;
+}
