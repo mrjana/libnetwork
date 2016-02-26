@@ -541,6 +541,14 @@ func (d *driver) getNetworks() []*bridgeNetwork {
 	return ls
 }
 
+func (d *driver) NetworkAllocate(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) (map[string]string, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (d *driver) NetworkFree(id string) error {
+	return fmt.Errorf("not implemented")
+}
+
 // Create a new network using bridge plugin
 func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) error {
 	// Sanity checks
