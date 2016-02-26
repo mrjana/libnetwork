@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+// constants for the IP address type
+const (
+	IP = iota // IPv4 and IPv6
+	IPv4
+	IPv6
+)
+
 // UUID represents a globally unique ID of various resources like network and endpoint
 type UUID string
 
