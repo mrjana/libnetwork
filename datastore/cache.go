@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/docker/libkv/store"
-	"github.com/docker/libkv/store/boltdb"
 )
 
 type kvMap map[string]KVObject
@@ -44,7 +43,8 @@ func (c *cache) kmap(kvObject KVObject) (kvMap, error) {
 	if err != nil {
 		// In case of BoltDB it may return ErrBoltBucketNotFound when no writes
 		// have ever happened on the db bucket. So check for both err codes
-		if err == store.ErrKeyNotFound || err == boltdb.ErrBoltBucketNotFound {
+		//if err == store.ErrKeyNotFound || err == boltdb.ErrBoltBucketNotFound {
+		if err == store.ErrKeyNotFound {
 			// If the store doesn't have anything then there is nothing to
 			// populate in the cache. Just bail out.
 			goto out
