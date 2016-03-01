@@ -2,6 +2,10 @@ package ovmanager
 
 import (
 	"fmt"
+	"log"
+	"net"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/docker/libnetwork/datastore"
@@ -9,7 +13,6 @@ import (
 	"github.com/docker/libnetwork/driverapi"
 	"github.com/docker/libnetwork/idm"
 	"github.com/docker/libnetwork/netlabel"
-	"github.com/docker/libnetwork/types"
 )
 
 const (
@@ -28,22 +31,18 @@ type driver struct {
 	sync.Mutex
 }
 
-type network struct{}
+type subnet struct {
+	subnetIP *net.IPNet
+	gwIP     *net.IPNet
+	vni      uint32
+}
 
-// type network struct {
-//	id        string
-//	dbIndex   uint64
-//	dbExists  bool
-//	sbox      osl.Sandbox
-//	endpoints endpointTable
-//	driver    *driver
-//	joinCnt   int
-//	once      *sync.Once
-//	initEpoch int
-//	initErr   error
-//	subnets   []*subnet
-//	sync.Mutex
-// }
+type network struct {
+	id      string
+	driver  *driver
+	subnets []*subnet
+	sync.Mutex
+}
 
 // Init registers a new instance of overlay driver
 func Init(dc driverapi.DriverCallback, config map[string]interface{}) error {
@@ -57,19 +56,7 @@ func Init(dc driverapi.DriverCallback, config map[string]interface{}) error {
 		config:   config,
 	}
 
-	if data, ok := config[netlabel.GlobalKVClient]; ok {
-		var err error
-		dsc, ok := data.(discoverapi.DatastoreConfigData)
-		if !ok {
-			return types.InternalErrorf("incorrect data in datastore configuration: %v", data)
-		}
-		d.store, err = datastore.NewDataStoreFromConfig(dsc)
-		if err != nil {
-			return types.InternalErrorf("failed to initialize data store: %v", err)
-		}
-	}
-
-	d.vxlanIdm, err = idm.New(d.store, "vxlan-id", vxlanIDStart, vxlanIDEnd)
+	d.vxlanIdm, err = idm.New(nil, "vxlan-id", vxlanIDStart, vxlanIDEnd)
 	if err != nil {
 		return fmt.Errorf("failed to initialize vxlan id manager: %v", err)
 	}
@@ -77,12 +64,126 @@ func Init(dc driverapi.DriverCallback, config map[string]interface{}) error {
 	return dc.RegisterDriver(networkType, d, c)
 }
 
-func (d *driver) NetworkAllocate(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) (map[string]string, error) {
-	return nil, nil
+func (d *driver) NetworkAllocate(id string, option map[string]string, ipV4Data, ipV6Data []driverapi.IPAMData) (map[string]string, error) {
+	if id == "" {
+		return nil, fmt.Errorf("invalid network id for overlay network")
+	}
+
+	if ipV4Data == nil {
+		return nil, fmt.Errorf("empty ipv4 data passed during overlay network creation")
+	}
+
+	n := &network{
+		id:      id,
+		driver:  d,
+		subnets: []*subnet{},
+	}
+
+	vxlanIDList := make([]uint32, 0, len(ipV4Data))
+	if val, ok := option[netlabel.OverlayVxlanIDList]; ok {
+		log.Println("overlay network option: ", val)
+		valStrList := strings.Split(val, ",")
+		for _, idStr := range valStrList {
+			vni, err := strconv.Atoi(idStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid vxlan id value %q passed", idStr)
+			}
+
+			vxlanIDList = append(vxlanIDList, uint32(vni))
+		}
+	}
+
+	for i, ipd := range ipV4Data {
+		s := &subnet{
+			subnetIP: ipd.Pool,
+			gwIP:     ipd.Gateway,
+		}
+
+		if len(vxlanIDList) > i {
+			s.vni = vxlanIDList[i]
+		}
+
+		if err := n.obtainVxlanID(s); err != nil {
+			log.Printf("Could not obtain vxlan id for pool %s: %v", s.subnetIP, err)
+		}
+
+		n.subnets = append(n.subnets, s)
+	}
+
+	opts := make(map[string]string)
+	val := fmt.Sprintf("%d", n.subnets[0].vni)
+	for _, s := range n.subnets[1:] {
+		val = val + fmt.Sprintf(",%d", s.vni)
+	}
+	opts[netlabel.OverlayVxlanIDList] = val
+
+	d.Lock()
+	d.networks[id] = n
+	d.Unlock()
+
+	return opts, nil
 }
 
 func (d *driver) NetworkFree(id string) error {
+	if id == "" {
+		return fmt.Errorf("invalid network id passed while freeing overlay network")
+	}
+
+	d.Lock()
+	n, ok := d.networks[id]
+	d.Unlock()
+
+	if !ok {
+		return fmt.Errorf("overlay network with id %s not found", id)
+	}
+
+	// Release all vxlan IDs in one shot.
+	n.releaseVxlanID()
+
+	d.Lock()
+	delete(d.networks, id)
+	d.Unlock()
+
 	return nil
+}
+
+func (n *network) obtainVxlanID(s *subnet) error {
+	var (
+		err error
+		vni uint64
+	)
+
+	n.Lock()
+	vni = uint64(s.vni)
+	n.Unlock()
+
+	if vni == 0 {
+		vni, err = n.driver.vxlanIdm.GetID()
+		if err != nil {
+			return err
+		}
+
+		n.Lock()
+		s.vni = uint32(vni)
+		n.Unlock()
+		return nil
+	}
+
+	return n.driver.vxlanIdm.GetSpecificID(vni)
+}
+
+func (n *network) releaseVxlanID() {
+	n.Lock()
+	vnis := make([]uint32, 0, len(n.subnets))
+	for _, s := range n.subnets {
+		vnis = append(vnis, s.vni)
+		s.vni = 0
+	}
+	n.Unlock()
+
+	for _, vni := range vnis {
+		n.driver.vxlanIdm.Release(uint64(vni))
+	}
 }
 
 func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) error {
