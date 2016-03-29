@@ -91,14 +91,17 @@ func (d *driver) NetworkFree(id string) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (d *driver) CreateNetwork(id string, options map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) error {
+func (d *driver) EventNotify(etype driverapi.EventType, nid, tableName, key string, value []byte) {
+}
+
+func (d *driver) CreateNetwork(id string, options map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) ([]string, error) {
 	create := &api.CreateNetworkRequest{
 		NetworkID: id,
 		Options:   options,
 		IPv4Data:  ipV4Data,
 		IPv6Data:  ipV6Data,
 	}
-	return d.call("CreateNetwork", create, &api.CreateNetworkResponse{})
+	return nil, d.call("CreateNetwork", create, &api.CreateNetworkResponse{})
 }
 
 func (d *driver) DeleteNetwork(nid string) error {

@@ -186,8 +186,11 @@ func (n *network) releaseVxlanID() {
 	}
 }
 
-func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) error {
-	return fmt.Errorf("not implemented")
+func (d *driver) EventNotify(etype driverapi.EventType, nid, tableName, key string, value []byte) {
+}
+
+func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) ([]string, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (d *driver) DeleteNetwork(nid string) error {

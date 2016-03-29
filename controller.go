@@ -520,7 +520,7 @@ func (c *controller) addNetwork(n *network) error {
 	}
 
 	// Create the network
-	if err := d.CreateNetwork(n.id, n.generic, n.getIPData(4), n.getIPData(6)); err != nil {
+	if _, err := d.CreateNetwork(n.id, n.generic, n.getIPData(4), n.getIPData(6)); err != nil {
 		return err
 	}
 

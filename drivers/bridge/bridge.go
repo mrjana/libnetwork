@@ -549,32 +549,39 @@ func (d *driver) NetworkFree(id string) error {
 	return fmt.Errorf("not implemented")
 }
 
+func (d *driver) EventNotify(etype driverapi.EventType, nid, tableName, key string, value []byte) {
+}
+
 // Create a new network using bridge plugin
-func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) error {
+func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) ([]string, error) {
 	// Sanity checks
 	d.Lock()
 	if _, ok := d.networks[id]; ok {
 		d.Unlock()
-		return types.ForbiddenErrorf("network %s exists", id)
+		return nil, types.ForbiddenErrorf("network %s exists", id)
 	}
 	d.Unlock()
 
 	// Parse and validate the config. It should not conflict with existing networks' config
 	config, err := parseNetworkOptions(id, option)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = config.processIPAM(id, ipV4Data, ipV6Data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err = d.createNetwork(config); err != nil {
-		return err
+		return nil, err
 	}
 
-	return d.storeUpdate(config)
+	if err = d.storeUpdate(config); err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 func (d *driver) createNetwork(config *networkConfiguration) error {

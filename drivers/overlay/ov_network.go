@@ -67,15 +67,18 @@ func (d *driver) NetworkFree(id string) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) error {
+func (d *driver) EventNotify(etype driverapi.EventType, nid, tableName, key string, value []byte) {
+}
+
+func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) ([]string, error) {
 	if id == "" {
-		return fmt.Errorf("invalid network id")
+		return nil, fmt.Errorf("invalid network id")
 	}
 
 	// Since we perform lazy configuration make sure we try
 	// configuring the driver when we enter CreateNetwork
 	if err := d.configure(); err != nil {
-		return err
+		return nil, err
 	}
 
 	n := &network{
@@ -96,12 +99,12 @@ func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Dat
 	}
 
 	if err := n.writeToStore(); err != nil {
-		return fmt.Errorf("failed to update data store for network %v: %v", n.id, err)
+		return nil, fmt.Errorf("failed to update data store for network %v: %v", n.id, err)
 	}
 
 	d.addNetwork(n)
 
-	return nil
+	return nil, nil
 }
 
 func (d *driver) DeleteNetwork(nid string) error {
