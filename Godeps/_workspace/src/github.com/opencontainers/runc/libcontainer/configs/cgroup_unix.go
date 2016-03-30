@@ -16,12 +16,26 @@ type Cgroup struct {
 	// name of parent cgroup or slice
 	Parent string `json:"parent"`
 
+	// ScopePrefix decribes prefix for the scope name
+	ScopePrefix string `json:"scope_prefix"`
+
+	// Paths represent the cgroups paths to join
+	Paths map[string]string
+
+	// Resources contains various cgroups settings to apply
+	*Resources
+}
+
+type Resources struct {
 	// If this is true allow access to any kind of device within the container.  If false, allow access only to devices explicitly listed in the allowed_devices list.
-	AllowAllDevices bool `json:"allow_all_devices"`
+	// Deprecated
+	AllowAllDevices bool `json:"allow_all_devices,omitempty"`
+	// Deprecated
+	AllowedDevices []*Device `json:"allowed_devices,omitempty"`
+	// Deprecated
+	DeniedDevices []*Device `json:"denied_devices,omitempty"`
 
-	AllowedDevices []*Device `json:"allowed_devices"`
-
-	DeniedDevices []*Device `json:"denied_devices"`
+	Devices []*Device `json:"devices"`
 
 	// Memory limit (in bytes)
 	Memory int64 `json:"memory"`
@@ -29,7 +43,7 @@ type Cgroup struct {
 	// Memory reservation or soft_limit (in bytes)
 	MemoryReservation int64 `json:"memory_reservation"`
 
-	// Total memory usage (memory + swap); set `-1' to disable swap
+	// Total memory usage (memory + swap); set `-1` to enable unlimited swap
 	MemorySwap int64 `json:"memory_swap"`
 
 	// Kernel memory limit (in bytes)
@@ -55,6 +69,9 @@ type Cgroup struct {
 
 	// MEM to use
 	CpusetMems string `json:"cpuset_mems"`
+
+	// Process limit; set <= `0' to disable limit.
+	PidsLimit int64 `json:"pids_limit"`
 
 	// Specifies per cgroup weight, range is from 10 to 1000.
 	BlkioWeight uint16 `json:"blkio_weight"`
@@ -82,9 +99,6 @@ type Cgroup struct {
 
 	// Hugetlb limit (in bytes)
 	HugetlbLimit []*HugepageLimit `json:"hugetlb_limit"`
-
-	// ScopePrefix decribes prefix for the scope name
-	ScopePrefix string `json:"scope_prefix"`
 
 	// Whether to disable OOM Killer
 	OomKillDisable bool `json:"oom_kill_disable"`
