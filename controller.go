@@ -152,6 +152,7 @@ type controller struct {
 	nmap           map[string]*netWatch
 	defOsSbox      osl.Sandbox
 	sboxOnce       sync.Once
+	agent          *agent
 	sync.Mutex
 }
 
@@ -169,6 +170,14 @@ func New(cfgOptions ...config.Option) (NetworkController, error) {
 		// drivers:     driverTable{},
 		// ipamDrivers: ipamTable{},
 		svcDb: make(map[string]svcInfo),
+	}
+
+	if err := c.agentInit("0.0.0.0"); err != nil {
+		return nil, err
+	}
+
+	if err := c.agentJoin(c.cfg.Daemon.Neighbors); err != nil {
+		return nil, err
 	}
 
 	if err := c.initStores(); err != nil {
@@ -483,7 +492,8 @@ func (c *controller) NewNetwork(networkType, name string, id string, options ...
 		}
 	}()
 
-	if err = c.addNetwork(network); err != nil {
+	tablesToWatch, err := c.addNetwork(network)
+	if err != nil {
 		return nil, err
 	}
 	defer func() {
@@ -510,21 +520,30 @@ func (c *controller) NewNetwork(networkType, name string, id string, options ...
 		return nil, err
 	}
 
+	if err = network.joinCluster(); err != nil {
+		log.Errorf("Failed to join network %s into agent cluster: %v", name, err)
+	}
+
+	for _, table := range tablesToWatch {
+		network.addDriverWatch(table)
+	}
+
 	return network, nil
 }
 
-func (c *controller) addNetwork(n *network) error {
+func (c *controller) addNetwork(n *network) ([]string, error) {
 	d, err := n.driver(true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Create the network
-	if _, err := d.CreateNetwork(n.id, n.generic, n.getIPData(4), n.getIPData(6)); err != nil {
-		return err
+	tablesToWatch, err := d.CreateNetwork(n.id, n.generic, n.getIPData(4), n.getIPData(6))
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return tablesToWatch, nil
 }
 
 func (c *controller) Networks() []Network {

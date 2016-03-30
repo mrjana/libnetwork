@@ -630,7 +630,7 @@ func (n *network) Delete() error {
 	}
 	defer func() {
 		if err != nil {
-			if e := c.addNetwork(n); e != nil {
+			if _, e := c.addNetwork(n); e != nil {
 				log.Warnf("failed to rollback deleteNetwork for network %s: %v",
 					n.Name(), err)
 			}
@@ -648,6 +648,12 @@ func (n *network) Delete() error {
 
 	if err = n.getController().deleteFromStore(n); err != nil {
 		return fmt.Errorf("error deleting network from store: %v", err)
+	}
+
+	n.cancelDriverWatches()
+
+	if err = n.leaveCluster(); err != nil {
+		log.Errorf("Failed leaving network %s from the agent cluster: %v", n.Name(), err)
 	}
 
 	return nil

@@ -46,6 +46,7 @@ type network struct {
 
 type Config struct {
 	NodeName string
+	BindAddr string
 	BindPort int
 }
 
