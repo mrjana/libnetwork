@@ -34,21 +34,23 @@ type DrvRegistry struct {
 	ipamDrivers ipamTable
 	dfn         DriverNotifyFunc
 	ifn         IPAMNotifyFunc
+	isAgent     bool
 }
 
 // Functors definition
-type InitFunc func(driverapi.DriverCallback, map[string]interface{}) error
+type InitFunc func(driverapi.DriverCallback, bool, map[string]interface{}) error
 type IPAMWalkFunc func(name string, driver ipamapi.Ipam, cap *ipamapi.Capability) bool
 type DriverWalkFunc func(name string, driver driverapi.Driver, capability driverapi.Capability) bool
 type IPAMNotifyFunc func(name string, driver ipamapi.Ipam, cap *ipamapi.Capability) error
 type DriverNotifyFunc func(name string, driver driverapi.Driver, capability driverapi.Capability) error
 
-func New(lDs, gDs interface{}, dfn DriverNotifyFunc, ifn IPAMNotifyFunc) (*DrvRegistry, error) {
+func New(lDs, gDs interface{}, dfn DriverNotifyFunc, ifn IPAMNotifyFunc, isAgent bool) (*DrvRegistry, error) {
 	r := &DrvRegistry{
 		drivers:     make(driverTable),
 		ipamDrivers: make(ipamTable),
 		dfn:         dfn,
 		ifn:         ifn,
+		isAgent:     isAgent,
 	}
 
 	if err := r.initIPAMs(lDs, gDs); err != nil {
@@ -59,7 +61,7 @@ func New(lDs, gDs interface{}, dfn DriverNotifyFunc, ifn IPAMNotifyFunc) (*DrvRe
 }
 
 func (r *DrvRegistry) AddDriver(ntype string, fn InitFunc, config map[string]interface{}) error {
-	return fn(r, config)
+	return fn(r, r.isAgent, config)
 }
 
 func (r *DrvRegistry) WalkIPAMs(ifn IPAMWalkFunc) {

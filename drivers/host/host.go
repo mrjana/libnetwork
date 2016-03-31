@@ -18,7 +18,7 @@ type driver struct {
 }
 
 // Init registers a new instance of host driver
-func Init(dc driverapi.DriverCallback, config map[string]interface{}) error {
+func Init(dc driverapi.DriverCallback, isAgent bool, config map[string]interface{}) error {
 	c := driverapi.Capability{
 		DataScope: datastore.LocalScope,
 	}

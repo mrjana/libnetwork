@@ -124,7 +124,7 @@ func newDriver() *driver {
 }
 
 // Init registers a new instance of bridge driver
-func Init(dc driverapi.DriverCallback, config map[string]interface{}) error {
+func Init(dc driverapi.DriverCallback, isAgent bool, config map[string]interface{}) error {
 	if _, err := os.Stat("/proc/sys/net/bridge"); err != nil {
 		if out, err := exec.Command("modprobe", "-va", "bridge", "br_netfilter").CombinedOutput(); err != nil {
 			logrus.Warnf("Running modprobe bridge br_netfilter failed with message: %s, error: %v", out, err)

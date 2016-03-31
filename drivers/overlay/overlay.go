@@ -41,13 +41,14 @@ type driver struct {
 	vxlanIdm     *idm.Idm
 	once         sync.Once
 	joinOnce     sync.Once
+	isAgent      bool
 	sync.Mutex
 }
 
 // Init registers a new instance of overlay driver
-func Init(dc driverapi.DriverCallback, config map[string]interface{}) error {
+func Init(dc driverapi.DriverCallback, isAgent bool, config map[string]interface{}) error {
 	c := driverapi.Capability{
-		DataScope: datastore.GlobalScope,
+		DataScope: datastore.LocalScope,
 	}
 
 	d := &driver{
@@ -55,19 +56,24 @@ func Init(dc driverapi.DriverCallback, config map[string]interface{}) error {
 		peerDb: peerNetworkMap{
 			mp: map[string]*peerMap{},
 		},
-		config: config,
+		config:  config,
+		isAgent: isAgent,
 	}
 
-	if data, ok := config[netlabel.GlobalKVClient]; ok {
-		var err error
-		dsc, ok := data.(discoverapi.DatastoreConfigData)
-		if !ok {
-			return types.InternalErrorf("incorrect data in datastore configuration: %v", data)
+	if !isAgent {
+		if data, ok := config[netlabel.GlobalKVClient]; ok {
+			var err error
+			dsc, ok := data.(discoverapi.DatastoreConfigData)
+			if !ok {
+				return types.InternalErrorf("incorrect data in datastore configuration: %v", data)
+			}
+			d.store, err = datastore.NewDataStoreFromConfig(dsc)
+			if err != nil {
+				return types.InternalErrorf("failed to initialize data store: %v", err)
+			}
 		}
-		d.store, err = datastore.NewDataStoreFromConfig(dsc)
-		if err != nil {
-			return types.InternalErrorf("failed to initialize data store: %v", err)
-		}
+
+		c.DataScope = datastore.GlobalScope
 	}
 
 	return dc.RegisterDriver(networkType, d, c)
@@ -88,6 +94,10 @@ func Fini(drv driverapi.Driver) {
 
 func (d *driver) configure() error {
 	if d.store == nil {
+		if d.isAgent {
+			return nil
+		}
+
 		return types.NoServiceErrorf("datastore is not available")
 	}
 
@@ -140,17 +150,20 @@ func validateSelf(node string) error {
 }
 
 func (d *driver) nodeJoin(node string, self bool) {
-	if self && !d.isSerfAlive() {
+	if self {
 		if err := validateSelf(node); err != nil {
 			logrus.Errorf("%s", err.Error())
 		}
 		d.Lock()
 		d.bindAddress = node
 		d.Unlock()
-		err := d.serfInit()
-		if err != nil {
-			logrus.Errorf("initializing serf instance failed: %v", err)
-			return
+
+		if !d.isAgent && !d.isSerfAlive() {
+			err := d.serfInit()
+			if err != nil {
+				logrus.Errorf("initializing serf instance failed: %v", err)
+				return
+			}
 		}
 	}
 
@@ -180,7 +193,7 @@ func (d *driver) nodeJoin(node string, self bool) {
 }
 
 func (d *driver) pushLocalEndpointEvent(action, nid, eid string) {
-	if !d.isSerfAlive() {
+	if d.isAgent || !d.isSerfAlive() {
 		return
 	}
 	d.notifyCh <- ovNotify{

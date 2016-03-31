@@ -3,9 +3,11 @@ package overlay
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -13,6 +15,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/libnetwork/datastore"
 	"github.com/docker/libnetwork/driverapi"
+	"github.com/docker/libnetwork/netlabel"
 	"github.com/docker/libnetwork/netutils"
 	"github.com/docker/libnetwork/osl"
 	"github.com/docker/libnetwork/resolvconf"
@@ -67,9 +70,6 @@ func (d *driver) NetworkFree(id string) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (d *driver) EventNotify(etype driverapi.EventType, nid, tableName, key string, value []byte) {
-}
-
 func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Data, ipV6Data []driverapi.IPAMData) ([]string, error) {
 	if id == "" {
 		return nil, fmt.Errorf("invalid network id")
@@ -89,12 +89,40 @@ func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Dat
 		subnets:   []*subnet{},
 	}
 
-	for _, ipd := range ipV4Data {
+	vnis := make([]uint32, 0, len(ipV4Data))
+	if gval, ok := option[netlabel.GenericData]; ok {
+		optMap := gval.(map[string]string)
+		if val, ok := optMap[netlabel.OverlayVxlanIDList]; ok {
+			log.Println("overlay network option: ", val)
+			vniStrings := strings.Split(val, ",")
+			for _, vniStr := range vniStrings {
+				vni, err := strconv.Atoi(vniStr)
+				if err != nil {
+					return nil, fmt.Errorf("invalid vxlan id value %q passed", vniStr)
+				}
+
+				vnis = append(vnis, uint32(vni))
+			}
+		}
+	}
+
+	// If we are getting vnis from libnetwork, either we get for
+	// all subnets or none.
+	if len(vnis) != 0 && len(vnis) < len(ipV4Data) {
+		return nil, fmt.Errorf("insufficient vnis(%d) passed to overlay", len(vnis))
+	}
+
+	for i, ipd := range ipV4Data {
 		s := &subnet{
 			subnetIP: ipd.Pool,
 			gwIP:     ipd.Gateway,
 			once:     &sync.Once{},
 		}
+
+		if len(vnis) != 0 {
+			s.vni = vnis[i]
+		}
+
 		n.subnets = append(n.subnets, s)
 	}
 
@@ -104,7 +132,7 @@ func (d *driver) CreateNetwork(id string, option map[string]interface{}, ipV4Dat
 
 	d.addNetwork(n)
 
-	return nil, nil
+	return []string{"overlay_peer_table"}, nil
 }
 
 func (d *driver) DeleteNetwork(nid string) error {
@@ -240,11 +268,21 @@ func setHostMode() {
 }
 
 func (n *network) generateVxlanName(s *subnet) string {
-	return "vx-" + fmt.Sprintf("%06x", n.vxlanID(s)) + "-" + n.id[:5]
+	id := n.id
+	if len(n.id) > 5 {
+		id = n.id[:5]
+	}
+
+	return "vx-" + fmt.Sprintf("%06x", n.vxlanID(s)) + "-" + id
 }
 
 func (n *network) generateBridgeName(s *subnet) string {
-	return "ov-" + fmt.Sprintf("%06x", n.vxlanID(s)) + "-" + n.id[:5]
+	id := n.id
+	if len(n.id) > 5 {
+		id = n.id[:5]
+	}
+
+	return "ov-" + fmt.Sprintf("%06x", n.vxlanID(s)) + "-" + id
 }
 
 func isOverlap(nw *net.IPNet) bool {
@@ -396,6 +434,11 @@ func (n *network) watchMiss(nlSock *nl.NetlinkSocket) {
 			}
 
 			if neigh.State&(netlink.NUD_STALE|netlink.NUD_INCOMPLETE) == 0 {
+				continue
+			}
+
+			if n.driver.isAgent {
+				logrus.Errorf("unexpected miss in agent mode for peer %s", neigh.IP)
 				continue
 			}
 
@@ -571,11 +614,19 @@ func (n *network) DataScope() string {
 }
 
 func (n *network) writeToStore() error {
+	if n.driver.store == nil && n.driver.isAgent {
+		return nil
+	}
+
 	return n.driver.store.PutObjectAtomic(n)
 }
 
 func (n *network) releaseVxlanID() error {
 	if n.driver.store == nil {
+		if n.driver.isAgent {
+			return nil
+		}
+
 		return fmt.Errorf("no datastore configured. cannot release vxlan id")
 	}
 
