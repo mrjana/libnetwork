@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
-set -e
+#set -e
 
 export INTEGRATION_ROOT=./integration-tmp
 export TMPC_ROOT=./integration-tmp/tmpc
+export PLUGINS_SPEC_DIR=${INTEGRATION_ROOT}/plugins
+mkdir -p ${PLUGINS_SPEC_DIR}
 
 declare -A cmap
 
@@ -32,6 +34,36 @@ function run_bridge_tests() {
     ## Teardown
     stop_dnet 1 bridge 1>>${INTEGRATION_ROOT}/test.log 2>&1
     unset cmap[dnet-1-bridge]
+}
+
+function run_overlay_local_tests() {
+    ## Test overlay network in local scope
+    ## Setup
+    start_dnet 1 local 1>>${INTEGRATION_ROOT}/test.log 2>&1
+    cmap[dnet-1-local]=dnet-1-local
+    start_dnet 2 local:$(dnet_container_ip 1 local) 1>>${INTEGRATION_ROOT}/test.log 2>&1
+    cmap[dnet-2-local]=dnet-2-local
+    start_dnet 3 local:$(dnet_container_ip 1 local) 1>>${INTEGRATION_ROOT}/test.log 2>&1
+    cmap[dnet-3-local]=dnet-3-local
+
+    ## Run the test cases
+    ./integration-tmp/bin/bats ./test/integration/dnet/overlay-local.bats
+    # while true;
+    # do
+    #	sleep 1
+    # done
+
+    docker logs dnet-1-local
+    echo "======================================================================================"
+    docker logs dnet-2-local
+
+    ## Teardown
+    stop_dnet 1 local 1>>${INTEGRATION_ROOT}/test.log 2>&1
+    unset cmap[dnet-1-local]
+    stop_dnet 2 local 1>>${INTEGRATION_ROOT}/test.log 2>&1
+    unset cmap[dnet-2-local]
+    stop_dnet 3 local 1>>${INTEGRATION_ROOT}/test.log 2>&1
+    unset cmap[dnet-3-local]
 }
 
 function run_overlay_consul_tests() {

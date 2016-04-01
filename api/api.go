@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -301,7 +302,17 @@ func procCreateNetwork(c libnetwork.NetworkController, vars map[string]string, b
 	if len(create.DriverOpts) > 0 {
 		options = append(options, libnetwork.NetworkOptionDriverOpts(create.DriverOpts))
 	}
-	nw, err := c.NewNetwork(create.NetworkType, create.Name, "", options...)
+
+	if len(create.IPv4Conf) > 0 {
+		ipamV4Conf := &libnetwork.IpamConf{
+			PreferredPool: create.IPv4Conf[0].PreferredPool,
+			SubPool:       create.IPv4Conf[0].SubPool,
+		}
+
+		options = append(options, libnetwork.NetworkOptionIpam("default", "", []*libnetwork.IpamConf{ipamV4Conf}, nil, nil))
+	}
+
+	nw, err := c.NewNetwork(create.NetworkType, create.Name, create.ID, options...)
 	if err != nil {
 		return nil, convertNetworkError(err)
 	}
@@ -701,10 +712,13 @@ func procAttachBackend(c libnetwork.NetworkController, vars map[string]string, b
 		setFctList = append(setFctList, libnetwork.CreateOptionAlias(name, alias))
 	}
 
+	log.Printf("Entering api join ...")
 	err = sv.Join(sb, setFctList...)
+	log.Printf("Leaving api join ... %v", err)
 	if err != nil {
 		return nil, convertNetworkError(err)
 	}
+	log.Printf("sandbox key %s", sb.Key())
 	return sb.Key(), &successResponse
 }
 
