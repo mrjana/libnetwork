@@ -172,7 +172,7 @@ func New(cfgOptions ...config.Option) (NetworkController, error) {
 		svcDb: make(map[string]svcInfo),
 	}
 
-	if err := c.agentInit("0.0.0.0"); err != nil {
+	if err := c.agentInit(c.cfg.Daemon.Bind); err != nil {
 		return nil, err
 	}
 
@@ -448,6 +448,7 @@ func (c *controller) RegisterDriver(networkType string, driver driverapi.Driver,
 		c.pushNodeDiscovery(driver, capability, hd.Fetch(), true)
 	}
 
+	c.agentDriverNotify(driver)
 	return nil
 }
 
@@ -468,7 +469,7 @@ func (c *controller) NewNetwork(networkType, name string, id string, options ...
 		networkType: networkType,
 		generic:     map[string]interface{}{netlabel.GenericData: make(map[string]string)},
 		ipamType:    ipamapi.DefaultIPAM,
-		id:          stringid.GenerateRandomID(),
+		id:          id,
 		ctrlr:       c,
 		persist:     true,
 		drvOnce:     &sync.Once{},

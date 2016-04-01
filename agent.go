@@ -3,26 +3,77 @@ package libnetwork
 import (
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/go-events"
+	"github.com/docker/libnetwork/discoverapi"
 	"github.com/docker/libnetwork/driverapi"
 	"github.com/docker/libnetwork/networkdb"
 )
 
 type agent struct {
 	networkDB         *networkdb.NetworkDB
+	bindAddr          string
 	epTblCancel       func()
 	driverCancelFuncs map[string][]func()
 }
 
-func (c *controller) agentInit(bindAddr string) error {
+func getBindAddr(ifaceName string) (string, error) {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return "", fmt.Errorf("failed to find interface %s: %v", ifaceName, err)
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return "", fmt.Errorf("failed to get interface addresses: %v", err)
+	}
+
+	for _, a := range addrs {
+		addr, ok := a.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		addrIP := addr.IP
+
+		if addrIP.IsLinkLocalUnicast() {
+			continue
+		}
+
+		return addrIP.String(), nil
+	}
+
+	return "", fmt.Errorf("failed to get bind address")
+}
+
+func resolveAddr(addrOrInterface string) (string, error) {
+	// Try and see if this is a valid IP address
+	if net.ParseIP(addrOrInterface) != nil {
+		return addrOrInterface, nil
+	}
+
+	// If not a valid IP address, it should be a valid interface
+	return getBindAddr(addrOrInterface)
+}
+
+func (c *controller) agentInit(bindAddrOrInterface string) error {
 	if !c.cfg.Daemon.IsAgent {
 		return nil
 	}
 
-	nDB, err := networkdb.New(&networkdb.Config{BindAddr: bindAddr})
+	bindAddr, err := resolveAddr(bindAddrOrInterface)
+	if err != nil {
+		return err
+	}
+
+	hostname, _ := os.Hostname()
+	nDB, err := networkdb.New(&networkdb.Config{
+		BindAddr: bindAddr,
+		NodeName: hostname,
+	})
+
 	if err != nil {
 		return err
 	}
@@ -31,6 +82,7 @@ func (c *controller) agentInit(bindAddr string) error {
 
 	c.agent = &agent{
 		networkDB:         nDB,
+		bindAddr:          bindAddr,
 		epTblCancel:       cancel,
 		driverCancelFuncs: make(map[string][]func()),
 	}
@@ -45,6 +97,17 @@ func (c *controller) agentJoin(remotes []string) error {
 	}
 
 	return c.agent.networkDB.Join(remotes)
+}
+
+func (c *controller) agentDriverNotify(d driverapi.Driver) {
+	if c.agent == nil {
+		return
+	}
+
+	d.DiscoverNew(discoverapi.NodeDiscovery, discoverapi.NodeDiscoveryData{
+		Address: c.agent.bindAddr,
+		Self:    true,
+	})
 }
 
 func (c *controller) agentClose() {
@@ -115,6 +178,10 @@ func (ep *endpoint) deleteFromCluster() error {
 		}
 	}
 
+	if ep.joinInfo == nil {
+		return nil
+	}
+
 	for _, te := range ep.joinInfo.driverTableEntries {
 		if err := c.agent.networkDB.DeleteEntry(te.tableName, n.ID(), te.key); err != nil {
 			return err
@@ -136,6 +203,17 @@ func (n *network) addDriverWatch(tableName string) {
 	c.Unlock()
 
 	go c.handleTableEvents(ch, n.handleDriverTableEvent)
+
+	d, err := n.driver(false)
+	if err != nil {
+		logrus.Errorf("Could not resolve driver %s while walking driver tabl: %v", n.networkType, err)
+		return
+	}
+
+	c.agent.networkDB.WalkTable(tableName, func(nid, key string, value []byte) bool {
+		d.EventNotify(driverapi.Create, n.ID(), tableName, key, value)
+		return false
+	})
 }
 
 func (n *network) cancelDriverWatches() {
@@ -199,7 +277,7 @@ func (n *network) handleDriverTableEvent(ev events.Event) {
 		etype = driverapi.Delete
 	}
 
-	d.EventNotify(etype, tname, n.ID(), key, value)
+	d.EventNotify(etype, n.ID(), tname, key, value)
 }
 
 func (c *controller) handleEpTableEvent(ev events.Event) {

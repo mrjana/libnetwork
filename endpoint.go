@@ -462,12 +462,12 @@ func (ep *endpoint) sbJoin(sbox Sandbox, options ...EndpointOption) error {
 		return err
 	}
 
-	if sb.needDefaultGW() {
-		return sb.setupDefaultGW(ep)
-	}
-
 	if err := ep.addToCluster(); err != nil {
 		log.Errorf("Could not update state for endpoint %s into cluster: %v", ep.Name(), err)
+	}
+
+	if sb.needDefaultGW() {
+		return sb.setupDefaultGW(ep)
 	}
 
 	return nil

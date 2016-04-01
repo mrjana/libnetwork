@@ -26,6 +26,7 @@ type DaemonCfg struct {
 	DataDir        string
 	DefaultNetwork string
 	DefaultDriver  string
+	Bind           string
 	Neighbors      []string
 	Labels         []string
 	DriverCfg      map[string]interface{}
@@ -82,6 +83,12 @@ func ParseConfigOptions(cfgOptions ...Option) *Config {
 // Option is an option setter function type used to pass various configurations
 // to the controller
 type Option func(c *Config)
+
+func OptionBind(bind string) Option {
+	return func(c *Config) {
+		c.Daemon.Bind = bind
+	}
+}
 
 func OptionAgent() Option {
 	return func(c *Config) {
