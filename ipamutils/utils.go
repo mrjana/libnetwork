@@ -20,7 +20,7 @@ func init() {
 func initBroadPredefinedNetworks() []*net.IPNet {
 	pl := make([]*net.IPNet, 0, 31)
 	mask := []byte{255, 255, 0, 0}
-	for i := 17; i < 32; i++ {
+	for i := 18; i < 32; i++ {
 		pl = append(pl, &net.IPNet{IP: []byte{172, byte(i), 0, 0}, Mask: mask})
 	}
 	mask20 := []byte{255, 255, 240, 0}
