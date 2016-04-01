@@ -26,16 +26,25 @@ func (nDB *NetworkDB) Watch(tname, nid, key string) (chan events.Event, func()) 
 
 	if tname != "" || nid != "" || key != "" {
 		matcher = events.MatcherFunc(func(ev events.Event) bool {
-			event := ev.(event)
-			if tname != "" && event.Table != tname {
+			var evt event
+			switch ev := ev.(type) {
+			case CreateEvent:
+				evt = event(ev)
+			case UpdateEvent:
+				evt = event(ev)
+			case DeleteEvent:
+				evt = event(ev)
+			}
+
+			if tname != "" && evt.Table != tname {
 				return false
 			}
 
-			if nid != "" && event.NetworkID != nid {
+			if nid != "" && evt.NetworkID != nid {
 				return false
 			}
 
-			if key != "" && event.Key != key {
+			if key != "" && evt.Key != key {
 				return false
 			}
 

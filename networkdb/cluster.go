@@ -20,7 +20,9 @@ func (nDB *NetworkDB) clusterInit() error {
 	config := memberlist.DefaultLANConfig()
 	config.Name = nDB.config.NodeName
 	config.BindAddr = nDB.config.BindAddr
-	config.BindPort = nDB.config.BindPort
+	if nDB.config.BindPort != 0 {
+		config.BindPort = nDB.config.BindPort
+	}
 	config.ProtocolVersion = memberlist.ProtocolVersionMax
 	config.Delegate = &delegate{nDB: nDB}
 	config.Events = &eventDelegate{nDB: nDB}

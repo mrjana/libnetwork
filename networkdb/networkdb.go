@@ -2,6 +2,7 @@ package networkdb
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -257,6 +258,7 @@ func (nDB *NetworkDB) JoinNetwork(nid string) error {
 	nDB.networkNodes[nid] = append(nDB.networkNodes[nid], nDB.config.NodeName)
 	nDB.Unlock()
 
+	log.Printf("%s: joined network %s", nDB.config.NodeName, nid)
 	if _, err := nDB.bulkSync(nid, true); err != nil {
 		logrus.Errorf("Error bulk syncing while joining network %s: %v", nid, err)
 	}
