@@ -876,13 +876,13 @@ func (n *network) addSvcRecords(name string, epIP net.IP, ipMapUpdate bool) {
 	c := n.getController()
 	c.Lock()
 	defer c.Unlock()
-	sr, ok := c.svcDb[n.ID()]
+	sr, ok := c.svcRecords[n.ID()]
 	if !ok {
 		sr = svcInfo{
 			svcMap: make(map[string][]net.IP),
 			ipMap:  make(map[string]string),
 		}
-		c.svcDb[n.ID()] = sr
+		c.svcRecords[n.ID()] = sr
 	}
 
 	if ipMapUpdate {
@@ -905,7 +905,7 @@ func (n *network) deleteSvcRecords(name string, epIP net.IP, ipMapUpdate bool) {
 	c := n.getController()
 	c.Lock()
 	defer c.Unlock()
-	sr, ok := c.svcDb[n.ID()]
+	sr, ok := c.svcRecords[n.ID()]
 	if !ok {
 		return
 	}
@@ -933,7 +933,7 @@ func (n *network) getSvcRecords(ep *endpoint) []etchosts.Record {
 	defer n.Unlock()
 
 	var recs []etchosts.Record
-	sr, _ := n.ctrlr.svcDb[n.id]
+	sr, _ := n.ctrlr.svcRecords[n.id]
 
 	for h, ip := range sr.svcMap {
 		if ep != nil && strings.Split(h, ".")[0] == ep.Name() {
@@ -1256,4 +1256,81 @@ func (n *network) IPv6Enabled() bool {
 	defer n.Unlock()
 
 	return n.enableIPv6
+}
+
+type service struct {
+	name     string
+	id       string
+	backEnds map[string]map[string]net.IP
+}
+
+func newService(name string, id string) *service {
+	return &service{
+		name:     name,
+		id:       id,
+		backEnds: make(map[string]map[string]net.IP),
+	}
+}
+
+func (c *controller) addServiceBinding(name, sid, nid, eid string, ip net.IP) error {
+	var s *service
+
+	n, err := c.NetworkByID(nid)
+	if err != nil {
+		return err
+	}
+
+	c.Lock()
+	s, ok := c.serviceBindings[sid]
+	if !ok {
+		s = newService(name, sid)
+	}
+
+	netBackEnds, ok := s.backEnds[nid]
+	if !ok {
+		netBackEnds = make(map[string]net.IP)
+		s.backEnds[nid] = netBackEnds
+	}
+
+	netBackEnds[eid] = ip
+	c.serviceBindings[sid] = s
+	c.Unlock()
+
+	n.(*network).addSvcRecords(name, ip, false)
+	return nil
+}
+
+func (c *controller) rmServiceBinding(name, sid, nid, eid string, ip net.IP) error {
+	n, err := c.NetworkByID(nid)
+	if err != nil {
+		return err
+	}
+
+	c.Lock()
+	s, ok := c.serviceBindings[sid]
+	if !ok {
+		c.Unlock()
+		return nil
+	}
+
+	netBackEnds, ok := s.backEnds[nid]
+	if !ok {
+		c.Unlock()
+		return nil
+	}
+
+	delete(netBackEnds, eid)
+
+	if len(netBackEnds) == 0 {
+		delete(s.backEnds, nid)
+	}
+
+	if len(s.backEnds) == 0 {
+		delete(c.serviceBindings, sid)
+	}
+	c.Unlock()
+
+	n.(*network).deleteSvcRecords(name, ip, false)
+
+	return err
 }

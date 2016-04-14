@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net"
 	"strings"
 	"sync"
@@ -375,7 +376,7 @@ func (sb *sandbox) ResolveIP(ip string) string {
 	for _, ep := range sb.getConnectedEndpoints() {
 		n := ep.getNetwork()
 
-		sr, ok := n.getController().svcDb[n.ID()]
+		sr, ok := n.getController().svcRecords[n.ID()]
 		if !ok {
 			continue
 		}
@@ -472,7 +473,7 @@ func (sb *sandbox) resolveName(req string, networkName string, epList []*endpoin
 			ep.Unlock()
 		}
 
-		sr, ok := n.getController().svcDb[n.ID()]
+		sr, ok := n.getController().svcRecords[n.ID()]
 		if !ok {
 			continue
 		}
@@ -481,7 +482,7 @@ func (sb *sandbox) resolveName(req string, networkName string, epList []*endpoin
 		ip, ok := sr.svcMap[name]
 		n.Unlock()
 		if ok {
-			return ip[0]
+			return ip[rand.Int()%len(ip)]
 		}
 	}
 	return nil

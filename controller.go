@@ -141,18 +141,19 @@ type controller struct {
 	drvRegistry *drvregistry.DrvRegistry
 	// drivers        driverTable
 	// ipamDrivers    ipamTable
-	sandboxes      sandboxTable
-	cfg            *config.Config
-	stores         []datastore.DataStore
-	discovery      hostdiscovery.HostDiscovery
-	extKeyListener net.Listener
-	watchCh        chan *endpoint
-	unWatchCh      chan *endpoint
-	svcDb          map[string]svcInfo
-	nmap           map[string]*netWatch
-	defOsSbox      osl.Sandbox
-	sboxOnce       sync.Once
-	agent          *agent
+	sandboxes       sandboxTable
+	cfg             *config.Config
+	stores          []datastore.DataStore
+	discovery       hostdiscovery.HostDiscovery
+	extKeyListener  net.Listener
+	watchCh         chan *endpoint
+	unWatchCh       chan *endpoint
+	svcRecords      map[string]svcInfo
+	nmap            map[string]*netWatch
+	serviceBindings map[string]*service
+	defOsSbox       osl.Sandbox
+	sboxOnce        sync.Once
+	agent           *agent
 	sync.Mutex
 }
 
@@ -169,7 +170,8 @@ func New(cfgOptions ...config.Option) (NetworkController, error) {
 		sandboxes: sandboxTable{},
 		// drivers:     driverTable{},
 		// ipamDrivers: ipamTable{},
-		svcDb: make(map[string]svcInfo),
+		svcRecords:      make(map[string]svcInfo),
+		serviceBindings: make(map[string]*service),
 	}
 
 	if err := c.agentInit(c.cfg.Daemon.Bind); err != nil {
