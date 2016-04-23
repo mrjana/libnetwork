@@ -652,8 +652,8 @@ func (n *network) Delete() error {
 
 	n.cancelDriverWatches()
 
-	if err = n.leaveCluster(); err != nil {
-		log.Errorf("Failed leaving network %s from the agent cluster: %v", n.Name(), err)
+	if e := n.leaveCluster(); e != nil {
+		log.Errorf("Failed leaving network %s from the agent cluster: %v", n.Name(), e)
 	}
 
 	return nil
